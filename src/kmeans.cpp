@@ -15,5 +15,5 @@ Point::Point(double x, double y){
 }
 
 double Point::distance(Point p){
-    
+    return sqrt(pow(p.x - x,2) + pow(p.y - y,2));
 }

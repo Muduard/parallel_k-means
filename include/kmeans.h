@@ -1,12 +1,10 @@
 #ifndef KMEANS_H
 #define KMEANS_H
-
-void kmeans(float** dataset,int k, float** result){
-
-}
+#include <math.h>
+void kmeans(float** dataset,int k, float** result);
 
 class Point{
-    private:
+    protected:
         double x,y;
         int cluster;
         double minDist;
@@ -14,6 +12,6 @@ class Point{
         Point();
         Point(double,double);
         double distance(Point p);
-} point;
+};
 
 #endif

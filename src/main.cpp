@@ -2,19 +2,20 @@
 #include <vector>
 #include "csv.hpp"
 #include "dataManipulator.h"
+#include "kmeans.h"
 #include <iostream>
-
+#define IGNORED_COLS 3
 
 int main(){
 
-    csv::CSVReader reader("minute_weather.csv");
-    size_t ncols = csv::get_file_info("minute_weather.csv").n_cols;
-    size_t nrows = csv::get_file_info("minute_weather.csv").n_rows;
+    csv::CSVReader reader("Mall_Customers.csv");
+    size_t ncols = csv::get_file_info("Mall_Customers.csv").n_cols;
+    size_t nrows = csv::get_file_info("Mall_Customers.csv").n_rows;
     std::cout << "Cols: " << ncols << ", Rows: " << nrows << std::endl;
-    std::string colName0("rain_accumulation");
+    
 
-    std::vector<float>* cols[ncols-2];
-    for(int i =0;i<ncols-2;i++){
+    std::vector<float>* cols[ncols-IGNORED_COLS];
+    for(int i =0;i<ncols-IGNORED_COLS;i++){
         cols[i] = new std::vector<float>;
        
     }
@@ -25,7 +26,9 @@ int main(){
     std::cout << cols[0]->at(0) << std::endl;
     std::cout << cols[1]->at(0) << std::endl;
     //for(size_t i = 0;i<nrows;i+=10){
-
+    Point p(3.2,2.1);
+    Point p2(10.9,2.1);
+    std::cout << p.distance(p2) << std::endl;
     //}
     
 }
