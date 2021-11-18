@@ -23,35 +23,7 @@ void getVecsFromPVec(pVec* p, std::valarray<double>* vecX, std::valarray<double>
     *vecY = Vec(tmpy.data(),tmpy.size());
 }
 
-
-int main(){
-
-    csv::CSVReader reader("Mall_Customers.csv");
-    size_t ncols = csv::get_file_info("Mall_Customers.csv").n_cols;
-    size_t nrows = csv::get_file_info("Mall_Customers.csv").n_rows;
-    
-    std::vector<std::string> colNames = csv::get_col_names("Mall_Customers.csv");
-
-    std::vector<float>* cols[ncols-IGNORED_COLS];
-    for(int i =0;i<ncols-IGNORED_COLS;i++){
-        cols[i] = new std::vector<float>;
-       
-    }
-    auto start = high_resolution_clock::now();
-    standardize(&reader,cols,ncols,nrows);
-    auto stop = high_resolution_clock::now();
-    std::cout << duration_cast<milliseconds>(stop-start).count() << std::endl;
-    
-    pVec dataset;
-    std::string col0 = "Annual Income (k$)";
-    std::string col1 = "Spending Score (1-100)";
-    auto it1 = cols[columnNameToIndex(&colNames,col1)]->begin();
-    
-    for (auto it0 = cols[columnNameToIndex(&colNames,col0)]->begin(); it0 != cols[columnNameToIndex(&colNames,"Annual Income (k$)")]->end();it0++){
-        dataset.push_back(Point(*it0,*it1));
-        
-        it1++;
-    }
+void plotResults(pVec dataset){
     Plot plot;
     plot.legend()
         .atOutsideBottom()
@@ -62,12 +34,13 @@ int main(){
     getVecsFromPVec(&dataset,&x,&y);
     
     //std::cout << cols[columnNameToIndex(&colNames,caa)]->at(0) << std::endl;
-    int k = 3;
-    pVec centroids = randomCentroids(k,x.min(),x.max(),y.min(),y.max());
+    int k = 5;
+    double bounds[] = {x.min(),x.max(),y.min(),y.max()};
+    pVec centroids = randomCentroids(k,bounds);
     getVecsFromPVec(&centroids,&cx,&cy);
     std::cout << centroids.size()<<std::endl;
     printPVec(&centroids);
-    kmeans(&dataset,k,&centroids,20);
+    kmeans(&dataset,k,&centroids,10,bounds);
 
     plot.drawDots(x,y);
     plot.drawDots(cx,cy).lineWidth(5);
@@ -95,3 +68,36 @@ int main(){
     plot2.drawDots(cx2,cy2).lineWidth(5);
     plot2.show();
 }
+
+
+
+int main(){
+
+    csv::CSVReader reader("Mall_Customers.csv");
+    size_t ncols = csv::get_file_info("Mall_Customers.csv").n_cols;
+    size_t nrows = csv::get_file_info("Mall_Customers.csv").n_rows;
+    
+    std::vector<std::string> colNames = csv::get_col_names("Mall_Customers.csv");
+
+    std::vector<float>* cols[ncols-IGNORED_COLS];
+    for(int i =0;i<ncols-IGNORED_COLS;i++){
+        cols[i] = new std::vector<float>;
+       
+    }
+    auto start = high_resolution_clock::now();
+    standardize(&reader,cols,ncols,nrows);
+    auto stop = high_resolution_clock::now();
+    std::cout << duration_cast<milliseconds>(stop-start).count() << std::endl;
+    
+    pVec dataset;
+    std::string col0 = "Annual Income (k$)";
+    std::string col1 = "Spending Score (1-100)";
+    auto it1 = cols[columnNameToIndex(&colNames,col1)]->begin();
+    
+    for (auto it0 = cols[columnNameToIndex(&colNames,col0)]->begin(); it0 != cols[columnNameToIndex(&colNames,"Annual Income (k$)")]->end();it0++){
+        dataset.push_back(Point(*it0,*it1));
+        it1++;
+    }
+    plotResults(dataset);
+}
+

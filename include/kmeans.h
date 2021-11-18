@@ -9,6 +9,7 @@
 #include <boost/accumulators/framework/accumulator_set.hpp>
 #include <boost/accumulators/statistics/mean.hpp>
 #include <boost/math/special_functions/fpclassify.hpp>
+#include <cmath> 
 using namespace boost::accumulators;
 class Point{
     protected:
@@ -23,9 +24,11 @@ class Point{
         double getY();
         void setCluster(int c);
         int getCluster();
+        double getMinDist();
+        void setMinDist(double dist);
 };
 using pVec = std::vector<Point>;
-void kmeans(pVec* dataset,int k, pVec* centroids,int epochs);
-pVec randomCentroids(int k, double minX, double maxX, double minY, double maxY);
+void kmeans(pVec* dataset,int k, pVec* centroids,int epochs,double* bounds);
+pVec randomCentroids(int k, double* bounds);
 void printPVec(pVec* P);
 #endif

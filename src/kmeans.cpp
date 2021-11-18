@@ -25,14 +25,19 @@ double Point::getY(){
     return y;
 }
 
-pVec randomCentroids(int k, double minX, double maxX, double minY, double maxY){
+Point rndCentroid(double* bounds){
     std::random_device rd;
     std::default_random_engine eng(rd());
-    std::uniform_real_distribution<double> xDistr(minX, maxX);
-    std::uniform_real_distribution<double> yDistr(minY, maxY);
+    std::uniform_real_distribution<double> xDistr(bounds[0], bounds[1]);
+    std::uniform_real_distribution<double> yDistr(bounds[2], bounds[3]);
+    return Point(xDistr(eng),yDistr(eng));
+}
+
+pVec randomCentroids(int k, double* bounds){
+    
     pVec result;
     for (int i=0;i<k;i++){
-        result.push_back(Point(xDistr(eng),yDistr(eng)));
+        result.push_back(rndCentroid(bounds));
     }
     return result;
 }
@@ -43,38 +48,51 @@ void printPVec(pVec* P){
     }
     std::cout << std::endl;
 }
-void kmeans(pVec* dataset,int k, pVec* centroids,int epochs){
+void parallelKmeans(pVec* dataset,int k, pVec* centroids,int epochs, double* bounds){
+
+}
+void kmeans(pVec* dataset,int k, pVec* centroids,int epochs, double* bounds){
     
-   
+    int nanseq = 0;
     for(int e = 0;e<epochs;e++){
-       
-        for(auto p = dataset->begin();p!=dataset->end();p++){
-            double dist = 0;
-            int i = 0;
-            for (auto c = centroids->begin();c!= centroids->end();c++){
-            //Il punto appartiene al centroide
-                if(dist < p->distance(*c)){
-                
+        if(nanseq > 20){
+            *centroids = randomCentroids(k,bounds);
+            nanseq = 0;
+        }
+        int i = 0;
+        for (auto c = centroids->begin();c!= centroids->end();c++){
+            
+            for(auto p = dataset->begin();p!=dataset->end();p++){
+
+                //Il punto appartiene al centroide
+                if(p->getMinDist() > c->distance(*p)){
+                    
                     p->setCluster(i);
-                    dist = p->distance(*c);
+                    
+                    p->setMinDist(c->distance(*p));
+                    
                 }
-                i++;
+                
             }
+            
+            i++;
         }
 
-        Point newCentroids[centroids->size()];
         accumulator_set<double, stats<tag::mean> > accX[centroids->size()];
         accumulator_set<double, stats<tag::mean> > accY[centroids->size()];
         for (auto p = dataset->begin();p!=dataset->end();p++){
+            std::cout << p->getCluster() << std::endl;
             accX[p->getCluster()](p->getX());
             accY[p->getCluster()](p->getY());
         }
         for(int i =0;i<centroids->size();i++){
-            std::cout << i << ": (" << mean(accX[i]) << ", " <<  mean(accY[i]) << ")" << std::endl;
-            if(!isnan(mean(accX[i]))){
+            //std::cout << i << ": (" << mean(accX[i]) << ", " <<  mean(accY[i]) << ")" << std::endl;
+            
+            if(!isnan(mean(accX[i])) || !isnan(mean(accY[i]))){
                 centroids->at(i) = Point(mean(accX[i]),mean(accY[i]));
             }else{
-                std::cout << "NAN" << std::endl;
+                centroids->at(i) = rndCentroid(bounds);
+                nanseq++;
             }
             
         }
@@ -90,4 +108,12 @@ void Point::setCluster(int c){
 
 int Point::getCluster(){
     return cluster;
+}
+
+double Point::getMinDist(){
+    return minDist;
+}
+
+void Point::setMinDist(double dist){
+    minDist = dist;
 }
