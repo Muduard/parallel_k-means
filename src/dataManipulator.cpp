@@ -51,9 +51,7 @@ void standardize(csv::CSVReader* reader,std::vector<float>** cols,size_t ncols,s
         }
         j++;
     }
-    std::cout << "J: " << j << std::endl;
-    std::cout << "fd: " << fd << std::endl;
-    std::cout << "Size:" << cols[0]->size() << std::endl;
+
     float means[ncols-IGNORED_COLS];
     float sds[ncols-IGNORED_COLS];
     for(int c=0;c<ncols-IGNORED_COLS;c++){
@@ -66,8 +64,8 @@ void standardize(csv::CSVReader* reader,std::vector<float>** cols,size_t ncols,s
         
         means[c] = mean(acc);
         sds[c] = sqrt(variance(acc));
-        std::cout <<"Mean: "<< means[c] << std::endl;
-        std::cout <<"Std: "<< sds[c] << std::endl;
+        //std::cout <<"Mean: "<< means[c] << std::endl;
+        //std::cout <<"Std: "<< sds[c] << std::endl;
     }
     //Standardize x = (x - E(X))/SD(X)
     for(int c=0;c<ncols-IGNORED_COLS;c++){
@@ -79,4 +77,16 @@ void standardize(csv::CSVReader* reader,std::vector<float>** cols,size_t ncols,s
     
 }
 
-
+int columnNameToIndex(std::vector<std::string>* colNames,std::string colName){
+    int i = 0;
+    //std::cout << colName;
+    for(auto it = (colNames->begin() + IGNORED_COLS);it!= colNames->end();it++){
+        //std::cout << *it << std::endl;
+        //std::cout << colName << std::endl;
+        
+        //std::cout << it->compare(colName)<< std::endl;
+        if (it->compare(colName) == 0) return i;
+        i++;
+    }
+    return -1;
+}

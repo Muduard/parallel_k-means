@@ -21,6 +21,7 @@ bool eps_equal(float x, float eps);
 
 void standardize(csv::CSVReader* reader,std::vector<float>** cols,size_t ncols,size_t nrows);
 
+int columnNameToIndex(std::vector<std::string> *colNames,std::string colName);
 
 
 #endif
