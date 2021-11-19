@@ -48,8 +48,55 @@ void printPVec(pVec* P){
     }
     std::cout << std::endl;
 }
-void parallelKmeans(pVec* dataset,int k, pVec* centroids,int epochs, double* bounds){
 
+void parallelKmeans(pVec* dataset,int k, pVec* centroids,int epochs, double* bounds){
+    int nanseq = 0;
+    for(int e = 0;e<epochs;e++){
+        if(nanseq > 20){
+            *centroids = randomCentroids(k,bounds);
+            nanseq = 0;
+        }
+        
+        #pragma omp parallel for
+        for(int j=0;j<dataset->size();j++){
+            int i = 0;
+               
+            for (auto c = centroids->begin();c!= centroids->end();c++){
+                //Il punto appartiene al centroide
+                Point* p = &(dataset->at(j));
+                
+                if(p->getMinDist() > c->distance(*p)){
+                    
+                    p->setCluster(i);
+                    p->setMinDist(c->distance(*p));
+                    
+                }
+                i++;
+            }
+        }
+        
+        
+
+        accumulator_set<double, stats<tag::mean> > accX[centroids->size()];
+        accumulator_set<double, stats<tag::mean> > accY[centroids->size()];
+        for (auto p = dataset->begin();p!=dataset->end();p++){
+            //std::cout << p->getCluster() << std::endl;
+            accX[p->getCluster()](p->getX());
+            accY[p->getCluster()](p->getY());
+        }
+        for(int i =0;i<centroids->size();i++){
+            //std::cout << i << ": (" << mean(accX[i]) << ", " <<  mean(accY[i]) << ")" << std::endl;
+            
+            if(!isnan(mean(accX[i])) || !isnan(mean(accY[i]))){
+                centroids->at(i) = Point(mean(accX[i]),mean(accY[i]));
+            }else{
+                centroids->at(i) = rndCentroid(bounds);
+                nanseq++;
+            }
+            
+        }
+    }
+        
 }
 void kmeans(pVec* dataset,int k, pVec* centroids,int epochs, double* bounds){
     

@@ -23,36 +23,43 @@ void getVecsFromPVec(pVec* p, std::valarray<double>* vecX, std::valarray<double>
     *vecY = Vec(tmpy.data(),tmpy.size());
 }
 
-void plotResults(pVec dataset){
+void cleanCache(){
+    double a[2000];
+    for (int i=0;i<2000;i++) {
+        a[i] = 5;
+    }
+}
+
+void plotResults(pVec dataset, int k){
     Plot plot;
-    plot.legend()
-        .atOutsideBottom()
-        .displayHorizontal()
-        .displayExpandWidthBy(2);
+    plot.legend().show(false);
     
     Vec x,y,cx,cy;
     getVecsFromPVec(&dataset,&x,&y);
     
-    //std::cout << cols[columnNameToIndex(&colNames,caa)]->at(0) << std::endl;
-    int k = 5;
     double bounds[] = {x.min(),x.max(),y.min(),y.max()};
     pVec centroids = randomCentroids(k,bounds);
     getVecsFromPVec(&centroids,&cx,&cy);
     std::cout << centroids.size()<<std::endl;
-    printPVec(&centroids);
+    
     auto start = high_resolution_clock::now();
-    kmeans(&dataset,k,&centroids,300,bounds);
+    kmeans(&dataset,k,&centroids,100,bounds);
     auto stop = high_resolution_clock::now();
-    std::cout << duration_cast<nanoseconds>(stop-start).count() << std::endl;
+    std::cout << "KMEANS: " << duration_cast<milliseconds>(stop-start).count() << " ms"<< std::endl;
+
+    cleanCache();
+
+    start = high_resolution_clock::now();
+    parallelKmeans(&dataset,k,&centroids,100,bounds);
+    stop = high_resolution_clock::now();
+    std::cout << "Parallel KMEANS: " << duration_cast<milliseconds>(stop-start).count() << " ms"<< std::endl;
+
     plot.drawDots(x,y);
     plot.drawDots(cx,cy).lineWidth(5);
     plot.show(); 
 
     Plot plot2;
-    plot2.legend()
-        .atOutsideBottom()
-        .displayHorizontal()
-        .displayExpandWidthBy(2);
+    plot2.legend().show(false);
     pVec clusters[k];
     for(auto p = dataset.begin();p!=dataset.end();p++){
         clusters[p->getCluster()].push_back(*p);
@@ -66,7 +73,7 @@ void plotResults(pVec dataset){
     }
     Vec cx2,cy2;
     getVecsFromPVec(&centroids,&cx2,&cy2);
-    printPVec(&centroids);
+    //printPVec(&centroids);
     plot2.drawDots(cx2,cy2).lineWidth(5);
     plot2.show();
 }
@@ -100,9 +107,24 @@ pVec getDataset0(){
     return dataset;
 }
 
-int main(){
+pVec getDataset1(double minX, double maxX, double minY, double maxY, int k,int n){
+    std::random_device rd;
+    std::default_random_engine eng(rd());
+    std::uniform_real_distribution<double> xDistr(minX, maxX);
+    std::uniform_real_distribution<double> yDistr(minY, maxY);
+    pVec dataset;
+    for (int j=0;j<k;j++){
+        for(int i=0;i<n/k;i++){
+            dataset.push_back(Point(xDistr(eng)-j*maxX*2,yDistr(eng)-j*maxY*2));
+        }
+    }
+    return dataset;
+    
+}
 
-    pVec dataset = getDataset0();
-    plotResults(dataset);
+int main(){
+    int k = 20;
+    pVec dataset = getDataset1(-2,2,-2,2,k,2000);
+    plotResults(dataset,k);
 }
 

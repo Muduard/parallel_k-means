@@ -29,6 +29,7 @@ class Point{
 };
 using pVec = std::vector<Point>;
 void kmeans(pVec* dataset,int k, pVec* centroids,int epochs,double* bounds);
+void parallelKmeans(pVec* dataset,int k, pVec* centroids,int epochs, double* bounds);
 pVec randomCentroids(int k, double* bounds);
 void printPVec(pVec* P);
 #endif
