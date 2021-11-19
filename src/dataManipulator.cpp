@@ -6,12 +6,8 @@ bool eps_equal(float x, float eps){
 }
 
 void standardize(csv::CSVReader* reader,std::vector<float>** cols,size_t ncols,size_t nrows){
-    
     int removed = 0;
-    
     size_t j=0;
-    
-
     size_t fd = 0;
     for (auto& row: *reader) {
         
@@ -79,12 +75,9 @@ void standardize(csv::CSVReader* reader,std::vector<float>** cols,size_t ncols,s
 
 int columnNameToIndex(std::vector<std::string>* colNames,std::string colName){
     int i = 0;
-    //std::cout << colName;
+    
     for(auto it = (colNames->begin() + IGNORED_COLS);it!= colNames->end();it++){
-        //std::cout << *it << std::endl;
-        //std::cout << colName << std::endl;
         
-        //std::cout << it->compare(colName)<< std::endl;
         if (it->compare(colName) == 0) return i;
         i++;
     }
