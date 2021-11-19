@@ -40,8 +40,10 @@ void plotResults(pVec dataset){
     getVecsFromPVec(&centroids,&cx,&cy);
     std::cout << centroids.size()<<std::endl;
     printPVec(&centroids);
-    kmeans(&dataset,k,&centroids,10,bounds);
-
+    auto start = high_resolution_clock::now();
+    kmeans(&dataset,k,&centroids,300,bounds);
+    auto stop = high_resolution_clock::now();
+    std::cout << duration_cast<nanoseconds>(stop-start).count() << std::endl;
     plot.drawDots(x,y);
     plot.drawDots(cx,cy).lineWidth(5);
     plot.show(); 
@@ -69,10 +71,7 @@ void plotResults(pVec dataset){
     plot2.show();
 }
 
-
-
-int main(){
-
+pVec getDataset0(){
     csv::CSVReader reader("Mall_Customers.csv");
     size_t ncols = csv::get_file_info("Mall_Customers.csv").n_cols;
     size_t nrows = csv::get_file_info("Mall_Customers.csv").n_rows;
@@ -98,6 +97,12 @@ int main(){
         dataset.push_back(Point(*it0,*it1));
         it1++;
     }
+    return dataset;
+}
+
+int main(){
+
+    pVec dataset = getDataset0();
     plotResults(dataset);
 }
 

@@ -81,7 +81,7 @@ void kmeans(pVec* dataset,int k, pVec* centroids,int epochs, double* bounds){
         accumulator_set<double, stats<tag::mean> > accX[centroids->size()];
         accumulator_set<double, stats<tag::mean> > accY[centroids->size()];
         for (auto p = dataset->begin();p!=dataset->end();p++){
-            std::cout << p->getCluster() << std::endl;
+            //std::cout << p->getCluster() << std::endl;
             accX[p->getCluster()](p->getX());
             accY[p->getCluster()](p->getY());
         }
