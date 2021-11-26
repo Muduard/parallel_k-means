@@ -14,7 +14,9 @@ using namespace boost::accumulators;
 class Point{
     protected:
         double x,y;
+        //Current cluster
         int cluster;
+        //Current minimal distance to cluster
         double minDist;
     public:
         Point();

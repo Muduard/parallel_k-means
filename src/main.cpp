@@ -7,6 +7,9 @@
 #include <iostream>
 #define IGNORED_COLS 3
 #include <sciplot/sciplot.hpp>
+#include <boost/program_options.hpp>
+
+namespace po = boost::program_options;
 using namespace sciplot;
 using pVec = std::vector<Point>;
 
@@ -30,7 +33,7 @@ void cleanCache(){
     }
 }
 
-void plotResults(pVec dataset, int k){
+void plotResults(pVec dataset, int k, int epochs){
     Plot plot;
     plot.legend().show(false);
     
@@ -40,17 +43,17 @@ void plotResults(pVec dataset, int k){
     double bounds[] = {x.min(),x.max(),y.min(),y.max()};
     pVec centroids = randomCentroids(k,bounds);
     getVecsFromPVec(&centroids,&cx,&cy);
-    std::cout << centroids.size()<<std::endl;
+    
     
     auto start = high_resolution_clock::now();
-    kmeans(&dataset,k,&centroids,100,bounds);
+    kmeans(&dataset,k,&centroids,epochs,bounds);
     auto stop = high_resolution_clock::now();
     std::cout << "KMEANS: " << duration_cast<milliseconds>(stop-start).count() << " ms"<< std::endl;
 
     cleanCache();
 
     start = high_resolution_clock::now();
-    parallelKmeans(&dataset,k,&centroids,100,bounds);
+    parallelKmeans(&dataset,k,&centroids,epochs,bounds);
     stop = high_resolution_clock::now();
     std::cout << "Parallel KMEANS: " << duration_cast<milliseconds>(stop-start).count() << " ms"<< std::endl;
 
@@ -79,28 +82,40 @@ void plotResults(pVec dataset, int k){
 }
 
 pVec getDataset0(){
+    //Read dataset
     csv::CSVReader reader("Mall_Customers.csv");
+
+    //Get number of columns and rows of dataset
     size_t ncols = csv::get_file_info("Mall_Customers.csv").n_cols;
     size_t nrows = csv::get_file_info("Mall_Customers.csv").n_rows;
     
+    //Get dataset's column names
     std::vector<std::string> colNames = csv::get_col_names("Mall_Customers.csv");
 
+    //Allocate vectors for columns expect for the ignored ones
     std::vector<float>* cols[ncols-IGNORED_COLS];
     for(int i =0;i<ncols-IGNORED_COLS;i++){
         cols[i] = new std::vector<float>;
-       
     }
+
+    //Standardize data using the formula (x - mean(x))/sd(x)
     auto start = high_resolution_clock::now();
     standardize(&reader,cols,ncols,nrows);
     auto stop = high_resolution_clock::now();
     std::cout << duration_cast<milliseconds>(stop-start).count() << std::endl;
     
+    //Allocate vector of points as dataset
     pVec dataset;
+    //Define columns of interest for the analysis
     std::string col0 = "Annual Income (k$)";
     std::string col1 = "Spending Score (1-100)";
+
+    //Iterator of col1
     auto it1 = cols[columnNameToIndex(&colNames,col1)]->begin();
     
+    //Iteratate on col0 and col1
     for (auto it0 = cols[columnNameToIndex(&colNames,col0)]->begin(); it0 != cols[columnNameToIndex(&colNames,"Annual Income (k$)")]->end();it0++){
+        //Add points to datasets
         dataset.push_back(Point(*it0,*it1));
         it1++;
     }
@@ -110,9 +125,14 @@ pVec getDataset0(){
 pVec getDataset1(double minX, double maxX, double minY, double maxY, int k,int n){
     std::random_device rd;
     std::default_random_engine eng(rd());
+    //Define two uniform distributions in [minX,maxX] and [minY,maxY], one for the x points, one for the y points 
     std::uniform_real_distribution<double> xDistr(minX, maxX);
     std::uniform_real_distribution<double> yDistr(minY, maxY);
+
+    //Allocate vector of points as dataset
     pVec dataset;
+
+    //Generate dataset as a staircase to make easily visible clusters
     for (int j=0;j<k;j++){
         for(int i=0;i<n/k;i++){
             dataset.push_back(Point(xDistr(eng)-j*maxX*2,yDistr(eng)-j*maxY*2));
@@ -122,9 +142,119 @@ pVec getDataset1(double minX, double maxX, double minY, double maxY, int k,int n
     
 }
 
-int main(){
-    int k = 20;
-    pVec dataset = getDataset1(-2,2,-2,2,k,2000);
-    plotResults(dataset,k);
+void testPlot(int k, int points, int epochs){
+
+    std::vector<double> timesVec,timesVecParallel;
+    
+    Vec nPoints =  linspace(0, points, 10);
+    for (int i=100;i<points;i+=10){
+        std::cout << "Points: " << i << std::endl;
+        pVec dataset = getDataset1(-2,2,-2,2,k,points);
+        Vec x,y,cx,cy;
+        getVecsFromPVec(&dataset,&x,&y);
+
+        double bounds[] = {x.min(),x.max(),y.min(),y.max()};
+
+        pVec centroids = randomCentroids(k,bounds);
+        getVecsFromPVec(&centroids,&cx,&cy);
+        
+        
+        auto start = high_resolution_clock::now();
+        kmeans(&dataset,k,&centroids,epochs,bounds);
+        auto stop = high_resolution_clock::now();
+        timesVec.push_back(duration_cast<milliseconds>(stop-start).count() );
+
+        cleanCache();
+
+        start = high_resolution_clock::now();
+        parallelKmeans(&dataset,k,&centroids,epochs,bounds);
+        stop = high_resolution_clock::now();
+        timesVecParallel.push_back(duration_cast<milliseconds>(stop-start).count());
+    }
+    Vec times(timesVec.data(),timesVec.size());
+    Vec timeParallel(timesVecParallel.data(),timesVecParallel.size());
+    Plot plot;
+    plot.drawCurve(nPoints,times).label("Normal");
+    plot.drawCurve(nPoints,timeParallel).label("Parallel");
+    plot.legend().atOutsideTopRight();
+    plot.xlabel("Points");
+    plot.ylabel("Milliseconds");
+    
+    Figure fig = {{ plot }};
+    fig.size(600,300);
+    fig.show();
+    
+    
+}
+
+int main(int ac, char* av[]){
+    int clusters = 20;
+    int epochs = 100;
+    int points = 2000;
+    bool useDataset = false;
+    bool test = false;
+    try {
+
+        po::options_description desc("Allowed options");
+        desc.add_options()
+            ("help", "produce help message")
+            ("clusters", po::value<int>(), "set number of clusters")
+            ("epochs", po::value<int>(), "set number of epochs")
+            ("points", po::value<int>(), "set number of points to be generated for the dataset")
+            ("use-dataset", po::value<bool>(), "true to use dataset, false to generate dataset")
+            ("test", po::value<bool>(), "true to execute test")
+        ;
+
+        po::variables_map vm;        
+        po::store(po::parse_command_line(ac, av, desc), vm);
+        po::notify(vm);    
+
+        if (vm.count("help")) {
+            std::cout << desc << "\n";
+            return 0;
+        }
+
+        if (vm.count("clusters")) {
+            clusters = vm["clusters"].as<int>();
+        }
+        if (vm.count("epochs")) {
+            epochs = vm["epochs"].as<int>();
+        }
+        if (vm.count("points")) {
+            points = vm["points"].as<int>();
+        }
+        if (vm.count("use-dataset")) {
+            useDataset = vm["use-dataset"].as<bool>();
+        }
+        if (vm.count("test")) {
+            test = vm["test"].as<bool>();
+        }
+    }
+    catch(std::exception& e) {
+        std::cerr << "error: " << e.what() << "\n";
+        return 1;
+    }
+    catch(...) {
+        std::cerr << "Exception of unknown type!\n";
+    }
+    pVec dataset;
+    if(useDataset){
+        dataset = getDataset0();
+    }else{
+        if(!test){
+            dataset = getDataset1(-2,2,-2,2,clusters,points);
+        }else{
+            testPlot(clusters, points, epochs);
+
+        }
+        
+    }
+    if(!test){
+       plotResults(dataset,clusters,epochs);
+    }
+    
+    return 0;
+
+    
 }
 
