@@ -4,3 +4,5 @@ CMakeFiles
 .vscode
 build
 Makefile
+deps
+_deps
