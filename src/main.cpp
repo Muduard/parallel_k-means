@@ -141,20 +141,16 @@ pVec getDataset1(double minX, double maxX, double minY, double maxY, int k,int n
     //Generate dataset as a staircase to make easily visible clusters
     for (int j=0;j<k;j++){
         for(int i=0;i<n/k;i++){
+            
             dataset.push_back(Point(xDistr(eng)-j*maxX*2,yDistr(eng)-j*maxY*2));
         }
         
     }
+    
     return dataset;
     
 }
 
-void writeVectorToFile(std::vector<double> v, char* filename){
-    
-    std::ofstream outFile(filename);
-    // the important part
-    for (const auto &e : v) outFile << e << "\n";
-}
 
 void writeVectorToFile(std::vector<double> v, std::string filename){
     std::ofstream outFile(filename);
@@ -180,20 +176,23 @@ void plotSpeedUp(std::vector<double>* sequential, std::vector<double>* parallel,
 }
 
 void allocSOA(pVec* AOS,double** SOA){
-    SOA = (double**) malloc(2*sizeof(double*));
-                SOA[0] = (double*) malloc(AOS->size()*sizeof(double));
-                SOA[1] = (double*) malloc(AOS->size()*sizeof(double));
-                int j=0;
-                for(auto p = AOS->begin();p!= AOS->end();p++){
-                    SOA[0][j] = p->getX();
-                    SOA[1][j] = p->getY();
-                    j++;
-                }
+    
+    SOA[0] = (double*) malloc(AOS->size()*sizeof(double));
+    SOA[1] = (double*) malloc(AOS->size()*sizeof(double));
+    int j=0;
+    
+    for(auto p = AOS->begin();p!= AOS->end();p++){
+        SOA[0][j] = p->getX();
+        SOA[1][j] = p->getY();
+        j++;
+    }
+    
 }
 
 void procTest(int k, int points, int epochs,bool soa,int maxProcNumber,int datapoints){
     std::vector<double> timesParallelProcs[maxProcNumber];
     for(int nProc = 1;nProc <= maxProcNumber;nProc++){
+       
         omp_set_num_threads(nProc);
         std::vector<double> timesVecParallel;
     
@@ -203,6 +202,7 @@ void procTest(int k, int points, int epochs,bool soa,int maxProcNumber,int datap
         for (int i=increment;i<points;i+=increment){ 
             std::cout << "points: " << i << std::endl;
             pVec dataset = getDataset1(-20000,20000,-20000,20000,k,i);
+            
             Vec x,y,cx,cy;
             getVecsFromPVec(&dataset,&x,&y);
 
@@ -210,8 +210,9 @@ void procTest(int k, int points, int epochs,bool soa,int maxProcNumber,int datap
 
             pVec centroids = randomCentroids(k,bounds);
             getVecsFromPVec(&centroids,&cx,&cy);
-            double** datasetSOA;
-            double** centroidsSOA;
+            double** datasetSOA = (double**) malloc(2*sizeof(double*));
+            double** centroidsSOA = (double**) malloc(2*sizeof(double*));
+           
             if(soa){
                 allocSOA(&dataset,datasetSOA);
                 allocSOA(&centroids,centroidsSOA);
@@ -360,7 +361,6 @@ int main(int ac, char* av[]){
             dataset = getDataset1(-2,2,-2,2,clusters,points);
         }else{
             procTest(clusters, points, epochs,true,8,datapoints);
-
         }
     }
     if(!test){

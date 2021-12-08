@@ -236,6 +236,7 @@ void parallelKmeans_SOA(double** dataset,int n,int k, double** centroids,int nci
     
     points.xs = dataset[0];
     points.ys = dataset[1];
+    
     points.minDists = (double*) malloc(n*sizeof(double));
     points.clusters = (int*) malloc(n*sizeof(int));
     for(int i = 0;i<n;i++){
