@@ -9,6 +9,8 @@
 #define IGNORED_COLS 3
 #include <sciplot/sciplot.hpp>
 #include <boost/program_options.hpp>
+#include <dirent.h>
+#include <sys/types.h>
 #define FMT_HEADER_ONLY
 #include <fmt/core.h>
 #include "fmt/format.h"
@@ -158,14 +160,62 @@ void writeVectorToFile(std::vector<double> v, std::string filename){
     for (const auto &e : v) outFile << e << "\n";
 }
 
-void plotSpeedUp(std::vector<double>* sequential, std::vector<double>* parallel, Vec nProcessors){
+std::vector<std::string> getTxtFileList(const char* path){
+    std::vector<std::string> fileList;
+    struct dirent *entry;
+    DIR *dir =opendir(path);
+    if(dir == NULL){
+        std::vector<std::string> a;
+        return a;
+    }
+    while ((entry = readdir(dir)) != NULL) {
+        std::string fileName = entry->d_name;
+        if (fileName.find(".txt") != std::string::npos) {
+            fileList.push_back(entry->d_name);
+        }
+    }
+    closedir(dir);
+    return fileList;
+}
+
+void readSpeedUp(const char* path, int dataPoints, std::vector<double>* data){
+    std::vector<std::string> fileList = getTxtFileList(path);
+    int i=0;
+    for(auto it=fileList.begin();it!= fileList.end();it++){
+        std::ifstream plotDataFile;
+	    plotDataFile.open(fmt::format("{}/{}",path,*it), std::ios::in);
+        if (!plotDataFile) {
+            std::cout << "No such file"<<std::endl;
+        }
+        else {
+            std::string cursor;
+            while(std::getline(plotDataFile, cursor)){
+                data->push_back(std::atof(cursor.c_str()));
+                i++;
+            }
+        }
+        plotDataFile.close();
+    }
+}
+
+void plotSpeedUp(std::vector<double>* sequential, std::vector<double>* parallel, Vec* nProcessors){
     std::vector<double> Sp;
-    for(int i=0;i<sequential->size();i++){
-        Sp.push_back(sequential->at(i)/parallel->at(i));
+    std::cout << parallel->size()<<std::endl;
+    for(int i=0;i<nProcessors->size()-1;i++){
+        double avgSeq,avgPar = 0;
+        for(int j=0;j<sequential->size();j++){
+            avgSeq += sequential->at(j);
+            avgPar += parallel->at(i*nProcessors->size() +j);
+        }
+        avgSeq /= sequential->size();
+        avgPar /= sequential->size();
+        Sp.push_back(avgSeq/avgPar);
+        std::cout << avgPar << std::endl;
     }
     Vec SpVec(Sp.data(),Sp.size());
+
     Plot plot;
-    plot.drawCurve(nProcessors,SpVec);
+    plot.drawCurve(*nProcessors,SpVec);
     plot.legend().atOutsideTopRight();
     plot.xlabel("Processors");
     plot.ylabel("Speedup");
@@ -227,9 +277,47 @@ void procTest(int k, int points, int epochs,bool soa,int maxProcNumber,int datap
             auto stop = high_resolution_clock::now();
             timesVecParallel.push_back(duration_cast<seconds>(stop-start).count());
         }
-        writeVectorToFile(timesVecParallel,fmt::format("Parallel_{}.txt.", nProc));
+        writeVectorToFile(timesVecParallel,fmt::format("Parallel_{}.txt", nProc));
         
     }
+}
+
+void seqTest(int k, int points, int epochs,bool soa,int datapoints){
+    
+        std::vector<double> timesVec;
+    
+        Vec nPoints =  linspace(0, points, datapoints);
+        int increment = points/datapoints;
+        
+        for (int i=increment;i<points;i+=increment){ 
+            std::cout << "points: " << i << std::endl;
+            pVec dataset = getDataset1(-20000,20000,-20000,20000,k,i);
+            
+            Vec x,y,cx,cy;
+            getVecsFromPVec(&dataset,&x,&y);
+
+            double bounds[] = {x.min(),x.max(),y.min(),y.max()};
+
+            pVec centroids = randomCentroids(k,bounds);
+            getVecsFromPVec(&centroids,&cx,&cy);
+            double** datasetSOA = (double**) malloc(2*sizeof(double*));
+            double** centroidsSOA = (double**) malloc(2*sizeof(double*));
+           
+            if(soa){
+                allocSOA(&dataset,datasetSOA);
+                allocSOA(&centroids,centroidsSOA);
+            }
+            
+            auto start = high_resolution_clock::now();
+            if(soa){
+                kmeans_SOA(datasetSOA,dataset.size(),k,centroidsSOA,centroids.size(),epochs,bounds);
+            }else{
+                kmeans(&dataset,k,&centroids,epochs,bounds);
+            }
+            auto stop = high_resolution_clock::now();
+            timesVec.push_back(duration_cast<seconds>(stop-start).count());
+        }
+        writeVectorToFile(timesVec,"Sequential.txt");
 }
 
 
@@ -297,6 +385,8 @@ void testPlot(int k, int points, int epochs,bool soa,int datapoints){
     
 }
 
+
+
 int main(int ac, char* av[]){
     int clusters = 20;
     int epochs = 50;
@@ -304,6 +394,7 @@ int main(int ac, char* av[]){
     bool useDataset = false;
     bool test = false;
     int datapoints = 10;
+    bool soa = false;
     try {
 
         po::options_description desc("Allowed options");
@@ -313,6 +404,7 @@ int main(int ac, char* av[]){
             ("epochs", po::value<int>(), "set number of epochs")
             ("points", po::value<int>(), "set number of points to be generated for the dataset")
             ("datapoints", po::value<int>(), "set number of data points on which to evaluate the dataset")
+            ("soa", po::value<bool>(), "true to use Structures of Arrays")
             ("use-dataset", po::value<bool>(), "true to use dataset, false to generate dataset")
             ("test", po::value<bool>(), "true to execute test")
         ;
@@ -344,6 +436,9 @@ int main(int ac, char* av[]){
         if (vm.count("test")) {
             test = vm["test"].as<bool>();
         }
+        if (vm.count("soa")) {
+            soa = vm["soa"].as<bool>();
+        }
 
     }
     catch(std::exception& e) {
@@ -360,7 +455,14 @@ int main(int ac, char* av[]){
         if(!test){
             dataset = getDataset1(-2,2,-2,2,clusters,points);
         }else{
-            procTest(clusters, points, epochs,true,8,datapoints);
+            //procTest(clusters, points, epochs,soa,8,datapoints);
+            seqTest(clusters, points, epochs,soa,datapoints);
+            /*std::vector<double> sequential = {25,49,74,99,124,149,174,199,224};
+            std::vector<double> parallel;
+            readSpeedUp("./results",10,&parallel);
+            
+            Vec nProcessors =  linspace(1, 8, 7);
+            plotSpeedUp(&sequential,&parallel,&nProcessors);*/
         }
     }
     if(!test){
