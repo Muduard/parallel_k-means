@@ -178,7 +178,7 @@ std::vector<std::string> getTxtFileList(const char* path){
     return fileList;
 }
 
-void readSpeedUp(const char* path, int dataPoints, std::vector<double>* data){
+void readSpeedUp(const char* path, int dataPoints, std::vector<double>* parallel, std::vector<double>* sequential){
     std::vector<std::string> fileList = getTxtFileList(path);
     int i=0;
     for(auto it=fileList.begin();it!= fileList.end();it++){
@@ -189,10 +189,21 @@ void readSpeedUp(const char* path, int dataPoints, std::vector<double>* data){
         }
         else {
             std::string cursor;
-            while(std::getline(plotDataFile, cursor)){
-                data->push_back(std::atof(cursor.c_str()));
-                i++;
+            
+            if(it->find("Sequential") != std::string::npos){
+                
+                while(std::getline(plotDataFile, cursor)){
+                    sequential->push_back(std::atof(cursor.c_str()));
+                    i++;
+                }
+            }else{
+                
+                while(std::getline(plotDataFile, cursor)){
+                    parallel->push_back(std::atof(cursor.c_str()));
+                    i++;
+                }
             }
+            
         }
         plotDataFile.close();
     }
@@ -200,8 +211,7 @@ void readSpeedUp(const char* path, int dataPoints, std::vector<double>* data){
 
 void plotSpeedUp(std::vector<double>* sequential, std::vector<double>* parallel, Vec* nProcessors){
     std::vector<double> Sp;
-    std::cout << parallel->size()<<std::endl;
-    for(int i=0;i<nProcessors->size()-1;i++){
+    for(int i=0;i<nProcessors->size();i++){
         double avgSeq,avgPar = 0;
         for(int j=0;j<sequential->size();j++){
             avgSeq += sequential->at(j);
@@ -210,12 +220,11 @@ void plotSpeedUp(std::vector<double>* sequential, std::vector<double>* parallel,
         avgSeq /= sequential->size();
         avgPar /= sequential->size();
         Sp.push_back(avgSeq/avgPar);
-        std::cout << avgPar << std::endl;
     }
     Vec SpVec(Sp.data(),Sp.size());
 
     Plot plot;
-    plot.drawCurve(*nProcessors,SpVec);
+    plot.drawCurve(*nProcessors,SpVec).label("Speedup");
     plot.legend().atOutsideTopRight();
     plot.xlabel("Processors");
     plot.ylabel("Speedup");
@@ -456,13 +465,14 @@ int main(int ac, char* av[]){
             dataset = getDataset1(-2,2,-2,2,clusters,points);
         }else{
             //procTest(clusters, points, epochs,soa,8,datapoints);
-            seqTest(clusters, points, epochs,soa,datapoints);
-            /*std::vector<double> sequential = {25,49,74,99,124,149,174,199,224};
-            std::vector<double> parallel;
-            readSpeedUp("./results",10,&parallel);
+            //seqTest(clusters, points, epochs,soa,datapoints);
             
+            std::vector<double> parallel;
+            std::vector<double> sequential;
+            readSpeedUp("./results",10,&parallel,&sequential);
             Vec nProcessors =  linspace(1, 8, 7);
-            plotSpeedUp(&sequential,&parallel,&nProcessors);*/
+            std::cout << parallel.size() << std::endl;
+            plotSpeedUp(&sequential,&parallel,&nProcessors);
         }
     }
     if(!test){
