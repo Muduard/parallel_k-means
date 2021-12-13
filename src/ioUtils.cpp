@@ -64,31 +64,32 @@ pVec getDataset1(double minX, double maxX, double minY, double maxY, int k,int n
 }
 
 
+void makeResultDir(std::string path){
+    fs::path sPath(path);
+
+    if(!fs::exists(sPath)){
+        fs::create_directory(sPath);
+    }
+}
+
 void writeVectorToFile(std::vector<double> v, std::string filename){
     std::ofstream outFile(filename);
     // the important part
     for (const auto &e : v) outFile << e << "\n";
 }
 
-std::vector<std::string> getTxtFileList(const char* path){
+std::vector<std::string> getTxtFileList(std::string path){
     std::vector<std::string> fileList;
-    struct dirent *entry;
-    DIR *dir =opendir(path);
-    if(dir == NULL){
-        std::vector<std::string> a;
-        return a;
-    }
-    while ((entry = readdir(dir)) != NULL) {
-        std::string fileName = entry->d_name;
-        if (fileName.find(".txt") != std::string::npos) {
-            fileList.push_back(entry->d_name);
+    for (const auto & entry : fs::directory_iterator(path)){
+        std::string e = entry.path().filename().string();
+        if(e.find(".txt") != std::string::npos){
+            fileList.push_back(e);
         }
     }
-    closedir(dir);
     return fileList;
 }
 
-void readSpeedUp(const char* path, int dataPoints, std::vector<double>* parallel, std::vector<double>* sequential){
+void readSpeedUp(std::string path, int dataPoints, std::vector<double>* parallel, std::vector<double>* sequential){
     std::vector<std::string> fileList = getTxtFileList(path);
     int i=0;
     for(auto it=fileList.begin();it!= fileList.end();it++){

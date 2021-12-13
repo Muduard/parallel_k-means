@@ -22,4 +22,5 @@ void printPVec(pVec* P);
 void kmeans_SOA(double** dataset,int n,int k, double** centroids,int nci,int epochs, double* bounds);
 void parallelKmeans_SOA(double** dataset,int n,int k, double** centroids,int nci,int epochs, double* bounds);
 void parallelKmeans_SOA_nocycle(double** dataset,int n,int k, double** centroids,int nci,int epochs, double* bounds);
+void kmeans_SOA_nocycle(double** dataset,int n,int k, double** centroids,int nci,int epochs, double* bounds);
 #endif

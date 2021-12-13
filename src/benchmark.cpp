@@ -77,10 +77,10 @@ void seqTest(int k, int points, int epochs,bool soa,int datapoints){
                 allocSOA(&dataset,datasetSOA);
                 allocSOA(&centroids,centroidsSOA);
             }
-            
+            std::cout << "Nocycle"<<std::endl;
             auto start = high_resolution_clock::now();
             if(soa){
-                kmeans_SOA(datasetSOA,dataset.size(),k,centroidsSOA,centroids.size(),epochs,bounds);
+                kmeans_SOA_nocycle(datasetSOA,dataset.size(),k,centroidsSOA,centroids.size(),epochs,bounds);
             }else{
                 kmeans(&dataset,k,&centroids,epochs,bounds);
             }
@@ -178,6 +178,8 @@ int main(int ac, char* av[]){
             ("soa", po::value<bool>(), "true to use Structures of Arrays")
             ("use-dataset", po::value<bool>(), "true to use dataset, false to generate dataset")
             ("test", po::value<bool>(), "true to execute test")
+            ("result-path", po::value<std::string>(), "set path where to save benchmark results")
+            ("", po::value<bool>(), "true to execute test")
         ;
 
         po::variables_map vm;        
@@ -225,6 +227,9 @@ int main(int ac, char* av[]){
     catch(...) {
         std::cerr << "Exception of unknown type!\n";
     }
+
+    makeResultDir(resultPath);
+
     pVec dataset;
     if(useDataset){
         dataset = getDataset0();
@@ -240,7 +245,7 @@ int main(int ac, char* av[]){
                 std::cout << parallel.size() << std::endl;
                 plotSpeedUp(&sequential,&parallel,&nProcessors);
             }else{
-                procTest(clusters, points, epochs,soa,8,datapoints);
+                //procTest(clusters, points, epochs,soa,8,datapoints);
                 seqTest(clusters, points, epochs,soa,datapoints);
             }
             

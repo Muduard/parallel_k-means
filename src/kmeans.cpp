@@ -281,38 +281,30 @@ void parallelKmeans_SOA_nocycle(double** dataset,int n,int k, double** centroids
 
     double* cx = centroids[0];
     double* cy = centroids[1];
-    double* distances = (double*) malloc(n*nci*sizeof(double));
-    std::cout << "a";
-    auto start = high_resolution_clock::now();
-    #pragma omp parallel for
-    for(int i=0;i<n*nci;i++){
-        //std::cout << i<< " ";
-        distances[i] = distance(cx[i%n],cy[i%n],points.xs[(int) i/n],points.ys[(int) i/n]);
-    }
-    auto stop = high_resolution_clock::now();
-    std::cout << "distances:" << (duration_cast<milliseconds>(stop-start).count()) << "ms" << std::endl;
+    
     for(int e = 0;e<epochs;e++){
 
         double d;
         int i = 0;
-        start = high_resolution_clock::now();
+        short updateCond;
         #pragma omp parallel for
         for(int pi = 0;pi<n;pi++){
-
+            #pragma omp simd
             for (int ci = 0;ci< nci;ci++){
+                d = distance(cx[ci],cy[ci],points.xs[pi],points.ys[pi]);
+                //Distance is lesser than minimum distance
+                updateCond = ((d - points.minDists[pi]) || 0); 
                 
-                //The point is near the centroid
-                if(points.minDists[pi] >  distances[pi*n+ci]){
-                    //Set assigned cluster and new minimal distance
-                    points.clusters[pi] = i;
-                    points.minDists[pi] = distances[pi*n+ci];
-                }
+                //If updateCond == 1 => points.clusters[pi] = i
+                //Else if updateCond == 0 => points.clusters[pi] invariato
+                points.clusters[pi] =  (i*updateCond) || (-points.clusters[pi] *(updateCond-1));
+                points.minDists[pi] = (d*updateCond) || (-points.minDists[pi] *(updateCond-1));
+                
                 i++;
             }
             i=0;
         }
-        stop = high_resolution_clock::now();
-        std::cout << "parallel for:" << (duration_cast<milliseconds>(stop-start).count()) << "ms" << std::endl;
+        
         //Define accumulators to calculate x,y means of the points assigned to the k centroids
         accumulator_set<double, stats<tag::mean> > accX[nci];
         accumulator_set<double, stats<tag::mean> > accY[nci];
@@ -330,24 +322,75 @@ void parallelKmeans_SOA_nocycle(double** dataset,int n,int k, double** centroids
             
             if(!isnan(mean(accX[ci])) || !isnan(mean(accY[ci]))){
                 //Set new centroid position
-                //double cxDiff = cx[ci];
-                //double cyDiff = cy[ci];
-
                 cx[ci] = mean(accX[ci]);
                 cy[ci] = mean(accY[ci]);
 
-                //cxDiff -= cx[ci];
-                //cyDiff -= cy[ci];
-                //double cDiff = sqrt(pow(cxDiff,2) + pow(cyDiff,2));
-                start = high_resolution_clock::now();
-                #pragma omp parallel for
-                for(int di=0;di<n;di++){
-                    distances[di] = distance(cx[ci],cy[ci],points.xs[(int) di],points.ys[(int) di]);
-                    //d_{ik} = sqrt(d_{i(k1)}^2 + (c_diff)^2 -2ab)  
-                    //distances[di] = sqrt(pow(distances[di],2) + cDiff);
-                }
-                stop = high_resolution_clock::now();
-                std::cout << "distances2:" << (duration_cast<milliseconds>(stop-start).count()) << "ms" << std::endl;
+                
+            }else{
+                //Randomize a new position for the centroid
+                Point c = rndCentroid(bounds);
+                cx[ci] = c.getX();
+                cy[ci] = c.getY();
+            }
+            
+        }
+    }
+}
+
+void kmeans_SOA_nocycle(double** dataset,int n,int k, double** centroids,int nci,int epochs, double* bounds){
+    SOAPoint points;
+    points.xs = dataset[0];
+    points.ys = dataset[1];
+    points.minDists = (double*) malloc(n*sizeof(double));
+    points.clusters = (int*) malloc(n*sizeof(int));
+
+    double* cx = centroids[0];
+    double* cy = centroids[1];
+    
+    for(int e = 0;e<epochs;e++){
+
+        double d;
+        int i = 0;
+        short updateCond;
+        
+        for(int pi = 0;pi<n;pi++){
+            #pragma omp simd
+            for (int ci = 0;ci< nci;ci++){
+                d = distance(cx[ci],cy[ci],points.xs[pi],points.ys[pi]);
+                //Distance is lesser than minimum distance
+                updateCond = ((d - points.minDists[pi]) || 0); 
+                
+                //If updateCond == 1 => points.clusters[pi] = i
+                //Else if updateCond == 0 => points.clusters[pi] invariato
+                points.clusters[pi] =  (i*updateCond) || (-points.clusters[pi] *(updateCond-1));
+                points.minDists[pi] = (d*updateCond) || (-points.minDists[pi] *(updateCond-1));
+                
+                i++;
+            }
+            i=0;
+        }
+        
+        //Define accumulators to calculate x,y means of the points assigned to the k centroids
+        accumulator_set<double, stats<tag::mean> > accX[nci];
+        accumulator_set<double, stats<tag::mean> > accY[nci];
+
+        //Accumulate points on their assigned centroid accumulator
+        for(int pi = 0;pi<n;pi++){
+            //std::cout << p->getCluster() << std::endl;
+            accX[points.clusters[pi]](points.xs[pi]);
+            accY[points.clusters[pi]](points.ys[pi]);
+        }
+        
+        for (int ci = 0;ci< nci;ci++){
+            //std::cout << i << ": (" << mean(accX[i]) << ", " <<  mean(accY[i]) << ")" << std::endl;
+            //If the mean is NaN, the centroid has no assigned points to it
+            
+            if(!isnan(mean(accX[ci])) || !isnan(mean(accY[ci]))){
+                //Set new centroid position
+                cx[ci] = mean(accX[ci]);
+                cy[ci] = mean(accY[ci]);
+
+                
             }else{
                 //Randomize a new position for the centroid
                 Point c = rndCentroid(bounds);
