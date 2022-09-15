@@ -18,6 +18,7 @@ using namespace boost::math;
 using pVec = std::vector<Point>;
 void kmeans(pVec* dataset,int k, pVec* centroids,int epochs,double* bounds);
 void parallelKmeans(pVec* dataset,int k, pVec* centroids,int epochs, double* bounds);
+double parallelKmeansP(pVec* dataset,int k, pVec* centroids,int epochs, double* bounds);
 void kmeans_nocycle(pVec* dataset,int k, pVec* centroids,int epochs,double* bounds);
 void kmeans_nocycle2(pVec* dataset,int k, pVec* centroids,int epochs,double* bounds);
 void parallelKmeans_nocycle(pVec* dataset,int k, pVec* centroids,int epochs, double* bounds);

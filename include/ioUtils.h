@@ -21,5 +21,6 @@ pVec getDataset1(double minX, double maxX, double minY, double maxY, int k,int n
 void writeVectorToFile(std::vector<double> v, std::string filename);
 std::vector<std::string> getTxtFileList(std::string path);
 void readSpeedUp(std::string path, int dataPoints, std::vector<double>* parallel, std::vector<double>* sequential, std::vector<double>* cuda);
+
 void makeResultDir(std::string path);
 #endif

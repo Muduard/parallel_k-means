@@ -14,7 +14,7 @@ namespace po = boost::program_options;
 std::string resultPath ="./results/";
 
 void procTest(int k, int points, int epochs,bool soa,int maxProcNumber,int datapoints){
-    std::vector<double> timesParallelProcs[maxProcNumber];
+    std::vector<double> timesP;
     for(int nProc = 1;nProc <= maxProcNumber;nProc++){
         std::cout << "Procs: " << nProc << std::endl;
         omp_set_num_threads(nProc);
@@ -36,7 +36,7 @@ void procTest(int k, int points, int epochs,bool soa,int maxProcNumber,int datap
             getVecsFromPVec(&centroids,&cx,&cy);
             double** datasetSOA = (double**) malloc(2*sizeof(double*));
             double** centroidsSOA = (double**) malloc(2*sizeof(double*));
-           
+
             if(soa){
                 allocSOA(&dataset,datasetSOA);
                 allocSOA(&centroids,centroidsSOA);
@@ -52,7 +52,7 @@ void procTest(int k, int points, int epochs,bool soa,int maxProcNumber,int datap
             timesVecParallel.push_back(duration_cast<milliseconds>(stop-start).count());
         }
         writeVectorToFile(timesVecParallel,fmt::format("{}Parallel_{}.txt",resultPath, nProc));
-        
+        plotPercentage(&timesP);
     }
 }
 
@@ -125,6 +125,7 @@ void cudaTest(int k, int points, int epochs,int datapoints){
             timesVec.push_back(duration_cast<milliseconds>(stop-start).count());
         }
         writeVectorToFile(timesVec,fmt::format("{}Cuda.txt",resultPath));
+
 }
 
 
@@ -135,7 +136,7 @@ int main(int ac, char* av[]){
     int points = 500000;
     int datapoints = 10;
     bool soa = false;
-    bool cuda = false;
+    bool cuda = true;
     bool plot = true;
     bool onlyplot = false;
     try {
@@ -218,7 +219,7 @@ int main(int ac, char* av[]){
 
         readSpeedUp(resultPath,datapoints,&parallel,&sequential, &cuda );
         Vec nProcessors =  linspace(1, 8, 7);
-        plotSpeedUp(&sequential,&parallel,&nProcessors);
+        plotSpeedUpCuda(&sequential,&parallel, &cuda,&nProcessors);
     }
 
     return 0;

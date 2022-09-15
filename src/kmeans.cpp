@@ -43,7 +43,7 @@ void printPVec(pVec* P){
     -Repeat steps for epochs times
     */
 void kmeans(pVec* dataset,int k, pVec* centroids,int epochs, double* bounds){
-   
+
     for(int e = 0;e<epochs;e++){
         int i = 0;
         //Assign centroids
@@ -219,10 +219,9 @@ void parallelKmeans_SOA(double** dataset,int n,int k, double** centroids,int nci
 }
 
 void parallelKmeans(pVec* dataset,int k, pVec* centroids,int epochs, double* bounds){
-    
 
     for(int e = 0;e<epochs;e++){
-        
+
         //Assign centroids 
         #pragma omp parallel for
         for(int j=0;j<dataset->size();j++){
@@ -230,8 +229,6 @@ void parallelKmeans(pVec* dataset,int k, pVec* centroids,int epochs, double* bou
             Point* p = &(dataset->at(j));
             for (auto c = centroids->begin();c!= centroids->end();c++){
                 //Point is part of the centroid
-                
-                
                 if(p->getMinDist() > c->distance(*p)){
                     
                     p->setCluster(i);
@@ -242,9 +239,11 @@ void parallelKmeans(pVec* dataset,int k, pVec* centroids,int epochs, double* bou
             }
             i = 0;
         }
-        
+
+
         accumulator_set<double, stats<tag::mean> > accX[centroids->size()];
         accumulator_set<double, stats<tag::mean> > accY[centroids->size()];
+
         //Accumulate means
         for (auto p = dataset->begin();p!=dataset->end();p++){
             //std::cout << p->getCluster() << std::endl;
@@ -264,8 +263,62 @@ void parallelKmeans(pVec* dataset,int k, pVec* centroids,int epochs, double* bou
             
         }
     }
-        
 }
+
+double parallelKmeansP(pVec* dataset,int k, pVec* centroids,int epochs, double* bounds){
+    long mp = 0,seq = 0;
+    for(int e = 0;e<epochs;e++){
+        auto start = high_resolution_clock::now();
+        //Assign centroids
+        #pragma omp parallel for
+        for(int j=0;j<dataset->size();j++){
+            int i = 0;
+            Point* p = &(dataset->at(j));
+            for (auto c = centroids->begin();c!= centroids->end();c++){
+                //Point is part of the centroid
+                if(p->getMinDist() > c->distance(*p)){
+
+                    p->setCluster(i);
+                    p->setMinDist(c->distance(*p));
+
+                }
+                i++;
+            }
+            i = 0;
+        }
+        auto stop = high_resolution_clock::now();
+        mp += duration_cast<milliseconds>(stop-start).count();
+
+        accumulator_set<double, stats<tag::mean> > accX[centroids->size()];
+        accumulator_set<double, stats<tag::mean> > accY[centroids->size()];
+        start = high_resolution_clock::now();
+        //Accumulate means
+        for (auto p = dataset->begin();p!=dataset->end();p++){
+            //std::cout << p->getCluster() << std::endl;
+            accX[p->getCluster()](p->getX());
+            accY[p->getCluster()](p->getY());
+        }
+        //
+        for(int i =0;i<centroids->size();i++){
+            //std::cout << i << ": (" << mean(accX[i]) << ", " <<  mean(accY[i]) << ")" << std::endl;
+
+            if(!isnan(mean(accX[i])) || !isnan(mean(accY[i]))){
+                centroids->at(i) = Point(mean(accX[i]),mean(accY[i]));
+            }else{
+                centroids->at(i) = rndCentroid(bounds);
+
+            }
+
+        }
+        stop = high_resolution_clock::now();
+        seq += duration_cast<milliseconds>(stop-start).count();
+
+    }
+
+    std::cout << "seq: " <<  ((double)seq/(double)mp) << std::endl;
+    return ((double)seq/(double)mp)*100;
+}
+
 
 void Point::setCluster(int c){
     cluster = c;

@@ -14,5 +14,6 @@ void cleanCache();
 void plotResults(pVec dataset, int k, int epochs);
 void plotSpeedUpCuda(std::vector<double>* sequential, std::vector<double>* parallel, std::vector<double>* cuda,Vec* nProcessors);
 void plotSpeedUp(std::vector<double>* sequential, std::vector<double>* parallel,Vec* nProcessors);
+void plotPercentage(std::vector<double>* p);
 void allocSOA(pVec* AOS,double** SOA);
 #endif

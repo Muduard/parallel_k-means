@@ -107,6 +107,23 @@ void allocSOA(pVec* AOS,double** SOA){
     
 }
 
+void plotPercentage(std::vector<double>* p){
+    Vec v(p->data(),p->size());
+    Vec nProcessors =  linspace(1, 8, 7);
+    Plot2D plot;
+    plot.drawCurve(nProcessors,v).label("Multithreaded weight percentage");
+    plot.legend().atOutsideTopRight();
+    plot.xlabel("Processors");
+    plot.ylabel("Weight");
+
+    Figure fig = {{ plot }};
+    Canvas canvas = {{ fig }};
+    canvas.size(600, 600);
+    // Show the canvas in a pop-up window
+    canvas.show();
+    canvas.save("w.png");
+}
+
 /*void plotResults(pVec dataset, int k, int epochs){
     Plot plot;
     plot.legend().show(false);
