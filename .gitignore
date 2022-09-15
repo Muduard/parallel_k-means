@@ -6,3 +6,4 @@ build
 Makefile
 deps
 _deps
+cmake-build-debug

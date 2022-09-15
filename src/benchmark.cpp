@@ -1,4 +1,5 @@
 #include "kmeans.h"
+#include "kmeansCuda.h"
 #include "ioUtils.h"
 #include "plotUtils.h"
 
@@ -6,13 +7,16 @@
 #ifdef _OPENMP
 #include <omp.h> // for OpenMP library functions
 #endif
+
+#define NPROC 8
+
 namespace po = boost::program_options;
 std::string resultPath ="./results/";
 
 void procTest(int k, int points, int epochs,bool soa,int maxProcNumber,int datapoints){
     std::vector<double> timesParallelProcs[maxProcNumber];
     for(int nProc = 1;nProc <= maxProcNumber;nProc++){
-       
+        std::cout << "Procs: " << nProc << std::endl;
         omp_set_num_threads(nProc);
         std::vector<double> timesVecParallel;
     
@@ -45,7 +49,7 @@ void procTest(int k, int points, int epochs,bool soa,int maxProcNumber,int datap
                 parallelKmeans(&dataset,k,&centroids,epochs,bounds);
             }
             auto stop = high_resolution_clock::now();
-            timesVecParallel.push_back(duration_cast<seconds>(stop-start).count());
+            timesVecParallel.push_back(duration_cast<milliseconds>(stop-start).count());
         }
         writeVectorToFile(timesVecParallel,fmt::format("{}Parallel_{}.txt",resultPath, nProc));
         
@@ -77,82 +81,50 @@ void seqTest(int k, int points, int epochs,bool soa,int datapoints){
                 allocSOA(&dataset,datasetSOA);
                 allocSOA(&centroids,centroidsSOA);
             }
-            std::cout << "Nocycle"<<std::endl;
+            
             auto start = high_resolution_clock::now();
             if(soa){
-                kmeans_SOA_nocycle(datasetSOA,dataset.size(),k,centroidsSOA,centroids.size(),epochs,bounds);
+                kmeans_SOA(datasetSOA,dataset.size(),k,centroidsSOA,centroids.size(),epochs,bounds);
             }else{
                 kmeans(&dataset,k,&centroids,epochs,bounds);
             }
             auto stop = high_resolution_clock::now();
-            timesVec.push_back(duration_cast<seconds>(stop-start).count());
+            timesVec.push_back(duration_cast<milliseconds>(stop-start).count());
         }
         writeVectorToFile(timesVec,fmt::format("{}Sequential.txt",resultPath));
 }
-
-
-void testPlot(int k, int points, int epochs,bool soa,int datapoints){
-
-    std::vector<double> timesVec,timesVecParallel;
+void cudaTest(int k, int points, int epochs,int datapoints){
     
-    Vec nPoints =  linspace(0, points, datapoints);
-    int increment = points/datapoints;
+        std::vector<double> timesVec;
+    
+        Vec nPoints =  linspace(0, points, datapoints);
+        int increment = points/datapoints;
         
-    for (int i=increment;i<points;i+=increment){ 
-        std::cout << "points: " << i << std::endl;
-        pVec dataset = getDataset1(-20000,20000,-20000,20000,k,i);
-        Vec x,y,cx,cy;
-        getVecsFromPVec(&dataset,&x,&y);
+        for (int i=increment;i<points;i+=increment){ 
+            std::cout << "points: " << i << std::endl;
+            pVec dataset = getDataset1(-20000,20000,-20000,20000,k,i);
+            
+            Vec x,y,cx,cy;
+            getVecsFromPVec(&dataset,&x,&y);
 
-        double bounds[] = {x.min(),x.max(),y.min(),y.max()};
+            double bounds[] = {x.min(),x.max(),y.min(),y.max()};
 
-        pVec centroids = randomCentroids(k,bounds);
-        getVecsFromPVec(&centroids,&cx,&cy);
-        double** datasetSOA;
-        double** centroidsSOA;
-        if(soa){
+            pVec centroids = randomCentroids(k,bounds);
+            getVecsFromPVec(&centroids,&cx,&cy);
+            double** datasetSOA = (double**) malloc(2*sizeof(double*));
+            double** centroidsSOA = (double**) malloc(2*sizeof(double*));
+           
+            
             allocSOA(&dataset,datasetSOA);
             allocSOA(&centroids,centroidsSOA);
+            
+            
+            auto start = high_resolution_clock::now();
+            kmeans_SOA_cuda(datasetSOA,dataset.size(),k,centroidsSOA,centroids.size(),epochs,bounds);
+            auto stop = high_resolution_clock::now();
+            timesVec.push_back(duration_cast<milliseconds>(stop-start).count());
         }
-        
-        auto start = high_resolution_clock::now();
-        if(soa){
-            kmeans_SOA(datasetSOA,dataset.size(),k,centroidsSOA,centroids.size(),epochs,bounds);
-
-        }else{
-            kmeans(&dataset,k,&centroids,epochs,bounds);
-        }
-        
-        auto stop = high_resolution_clock::now();
-        timesVec.push_back(duration_cast<seconds>(stop-start).count());
-
-        cleanCache();
-        
-        start = high_resolution_clock::now();
-        if(soa){
-            parallelKmeans_SOA(datasetSOA,dataset.size(),k,centroidsSOA,centroids.size(),epochs,bounds);
-        }else{
-            parallelKmeans(&dataset,k,&centroids,epochs,bounds);
-        }
-       
-        stop = high_resolution_clock::now();
-        timesVecParallel.push_back(duration_cast<seconds>(stop-start).count());
-    }
-    writeVectorToFile(timesVec,fmt::format("times.txt",resultPath));
-    writeVectorToFile(timesVecParallel,fmt::format("timesParallel.txt",resultPath));
-    Vec times(timesVec.data(),timesVec.size());
-    Vec timeParallel(timesVecParallel.data(),timesVecParallel.size());
-    Plot plot;
-    plot.drawCurve(nPoints,times).label("Normal");
-    plot.drawCurve(nPoints,timeParallel).label("Parallel");
-    plot.legend().atOutsideTopRight();
-    plot.xlabel("Points");
-    plot.ylabel("Seconds");
-    
-    Figure fig = {{ plot }};
-    fig.size(600,300);
-    fig.show();
-    
+        writeVectorToFile(timesVec,fmt::format("{}Cuda.txt",resultPath));
 }
 
 
@@ -160,12 +132,12 @@ void testPlot(int k, int points, int epochs,bool soa,int datapoints){
 int main(int ac, char* av[]){
     int clusters = 20;
     int epochs = 50;
-    int points = 2000;
-    bool useDataset = false;
-    bool test = false;
+    int points = 500000;
     int datapoints = 10;
     bool soa = false;
-    bool plot = false;
+    bool cuda = false;
+    bool plot = true;
+    bool onlyplot = false;
     try {
 
         po::options_description desc("Allowed options");
@@ -176,10 +148,10 @@ int main(int ac, char* av[]){
             ("points", po::value<int>(), "set number of points to be generated for the dataset")
             ("datapoints", po::value<int>(), "set number of data points on which to evaluate the dataset")
             ("soa", po::value<bool>(), "true to use Structures of Arrays")
-            ("use-dataset", po::value<bool>(), "true to use dataset, false to generate dataset")
-            ("test", po::value<bool>(), "true to execute test")
+            ("cuda", po::value<bool>(), "true to use cuda")
             ("result-path", po::value<std::string>(), "set path where to save benchmark results")
-            ("", po::value<bool>(), "true to execute test")
+            ("plot", po::value<bool>(), "true to plot results after test")
+            ("onlyplot", po::value<bool>(), "true to only plot results without new tests")
         ;
 
         po::variables_map vm;        
@@ -203,20 +175,20 @@ int main(int ac, char* av[]){
         if (vm.count("datapoints")) {
             datapoints = vm["datapoints"].as<int>();
         }
-        if (vm.count("use-dataset")) {
-            useDataset = vm["use-dataset"].as<bool>();
-        }
         if (vm.count("result-path")) {
             resultPath = vm["result-path"].as<std::string>();
-        }
-        if (vm.count("test")) {
-            test = vm["test"].as<bool>();
         }
         if (vm.count("soa")) {
             soa = vm["soa"].as<bool>();
         }
+        if (vm.count("cuda")) {
+            cuda = vm["cuda"].as<bool>();
+        }
         if (vm.count("plot")) {
-            soa = vm["plot"].as<bool>();
+            plot = vm["plot"].as<bool>();
+        }
+        if (vm.count("onlyplot")) {
+            onlyplot = vm["onlyplot"].as<bool>();
         }
 
     }
@@ -231,31 +203,24 @@ int main(int ac, char* av[]){
     makeResultDir(resultPath);
 
     pVec dataset;
-    if(useDataset){
-        dataset = getDataset0();
-    }else{
-        if(!test){
-            dataset = getDataset1(-2,2,-2,2,clusters,points);
-        }else{
-            if(plot){
-                std::vector<double> parallel;
-                std::vector<double> sequential;
-                readSpeedUp("./results",10,&parallel,&sequential);
-                Vec nProcessors =  linspace(1, 8, 7);
-                std::cout << parallel.size() << std::endl;
-                plotSpeedUp(&sequential,&parallel,&nProcessors);
-            }else{
-                //procTest(clusters, points, epochs,soa,8,datapoints);
-                seqTest(clusters, points, epochs,soa,datapoints);
-            }
-            
-            
-            
+    if(!onlyplot){
+        if(cuda){
+            cudaTest(clusters, points, epochs,datapoints);
         }
+        seqTest(clusters, points, epochs,soa,datapoints);
+        procTest(clusters, points, epochs,soa,NPROC,datapoints);
     }
-    if(!test){
-       plotResults(dataset,clusters,epochs);
+
+    if(plot){
+        std::vector<double> parallel;
+        std::vector<double> sequential;
+        std::vector<double> cuda;
+
+        readSpeedUp(resultPath,datapoints,&parallel,&sequential, &cuda );
+        Vec nProcessors =  linspace(1, 8, 7);
+        plotSpeedUp(&sequential,&parallel,&nProcessors);
     }
+
     return 0;
 
     

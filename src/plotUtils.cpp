@@ -19,7 +19,95 @@ void cleanCache(){
     }
 }
 
-void plotResults(pVec dataset, int k, int epochs){
+
+void plotSpeedUpCuda(std::vector<double>* sequential, std::vector<double>* parallel, std::vector<double>* cuda, Vec* nProcessors){
+    std::vector<double> Sp;
+    //Speedup cuda parallel
+    std::vector<double> SpCP;
+    //Speedup cuda sequential
+    std::vector<double> SpCS;
+
+    for(int i=0;i<nProcessors->size();i++){
+        double avgSeq = 0,avgPar = 0,avgCuda = 0;
+        for(int j=0;j<sequential->size();j++){
+            avgSeq += sequential->at(j);
+            avgCuda += cuda->at(j);
+            avgPar += parallel->at(i*nProcessors->size() +j);
+        }
+        avgSeq /= sequential->size();
+        avgPar /= sequential->size();
+        avgCuda /= sequential->size();
+        Sp.push_back(avgSeq/avgPar);
+        SpCP.push_back(avgCuda / avgPar);
+        SpCS.push_back(avgSeq/avgCuda);
+    }
+    Vec SpVec(Sp.data(),Sp.size());
+    Vec SpCPVec(SpCP.data(),SpCP.size());
+    std::cout << "Speedup cuda sequential: " << SpCS.at(0) << std:: endl;
+
+    Plot2D plot;
+    plot.drawCurve(*nProcessors,SpVec).label("Openmp Speedup");
+    plot.drawCurve(*nProcessors,SpCPVec).label("Cuda Speedup");
+    plot.legend().atOutsideTopRight();
+    plot.xlabel("Processors");
+    plot.ylabel("Speedup");
+    
+    Figure fig = {{ plot }};
+    Canvas canvas = {{ fig }};
+    canvas.size(600, 600);
+    // Show the canvas in a pop-up window
+    canvas.show();
+    canvas.save("speedup_cuda_par.png");
+
+}
+void plotSpeedUp(std::vector<double>* sequential, std::vector<double>* parallel, Vec* nProcessors){
+    std::vector<double> Sp;
+
+
+    for(int i=0;i<nProcessors->size();i++){
+        double avgSeq = 0,avgPar = 0;
+        for(int j=0;j<sequential->size();j++){
+            avgSeq += sequential->at(j);
+            avgPar += parallel->at(i*nProcessors->size() +j);
+        }
+        avgSeq /= sequential->size();
+        avgPar /= sequential->size();
+
+        Sp.push_back(avgSeq/avgPar);
+    }
+    Vec SpVec(Sp.data(),Sp.size());
+
+
+    Plot2D plot;
+    plot.drawCurve(*nProcessors,SpVec).label("Openmp Speedup");
+    plot.legend().atOutsideTopRight();
+    plot.xlabel("Processors");
+    plot.ylabel("Speedup");
+
+    Figure fig = {{ plot }};
+    Canvas canvas = {{ fig }};
+    canvas.size(600, 600);
+    // Show the canvas in a pop-up window
+    canvas.show();
+    canvas.save("speedup_par_seq.png");
+
+}
+
+void allocSOA(pVec* AOS,double** SOA){
+    
+    SOA[0] = (double*) malloc(AOS->size()*sizeof(double));
+    SOA[1] = (double*) malloc(AOS->size()*sizeof(double));
+    int j=0;
+    
+    for(auto p = AOS->begin();p!= AOS->end();p++){
+        SOA[0][j] = p->getX();
+        SOA[1][j] = p->getY();
+        j++;
+    }
+    
+}
+
+/*void plotResults(pVec dataset, int k, int epochs){
     Plot plot;
     plot.legend().show(false);
     
@@ -65,43 +153,4 @@ void plotResults(pVec dataset, int k, int epochs){
     //printPVec(&centroids);
     plot2.drawDots(cx2,cy2).lineWidth(5);
     plot2.show();
-}
-
-void plotSpeedUp(std::vector<double>* sequential, std::vector<double>* parallel, Vec* nProcessors){
-    std::vector<double> Sp;
-    for(int i=0;i<nProcessors->size();i++){
-        double avgSeq,avgPar = 0;
-        for(int j=0;j<sequential->size();j++){
-            avgSeq += sequential->at(j);
-            avgPar += parallel->at(i*nProcessors->size() +j);
-        }
-        avgSeq /= sequential->size();
-        avgPar /= sequential->size();
-        Sp.push_back(avgSeq/avgPar);
-    }
-    Vec SpVec(Sp.data(),Sp.size());
-
-    Plot plot;
-    plot.drawCurve(*nProcessors,SpVec).label("Speedup");
-    plot.legend().atOutsideTopRight();
-    plot.xlabel("Processors");
-    plot.ylabel("Speedup");
-    
-    Figure fig = {{ plot }};
-    fig.size(600,300);
-    fig.show();
-}
-
-void allocSOA(pVec* AOS,double** SOA){
-    
-    SOA[0] = (double*) malloc(AOS->size()*sizeof(double));
-    SOA[1] = (double*) malloc(AOS->size()*sizeof(double));
-    int j=0;
-    
-    for(auto p = AOS->begin();p!= AOS->end();p++){
-        SOA[0][j] = p->getX();
-        SOA[1][j] = p->getY();
-        j++;
-    }
-    
-}
+}*/

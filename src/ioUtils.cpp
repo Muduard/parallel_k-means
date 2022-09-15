@@ -89,7 +89,8 @@ std::vector<std::string> getTxtFileList(std::string path){
     return fileList;
 }
 
-void readSpeedUp(std::string path, int dataPoints, std::vector<double>* parallel, std::vector<double>* sequential){
+void readSpeedUp(std::string path, int dataPoints, std::vector<double>* parallel, std::vector<double>* sequential, std::vector<double>* cuda){
+    std::cout << "reading list" << std::endl;
     std::vector<std::string> fileList = getTxtFileList(path);
     int i=0;
     for(auto it=fileList.begin();it!= fileList.end();it++){
@@ -107,14 +108,18 @@ void readSpeedUp(std::string path, int dataPoints, std::vector<double>* parallel
                     sequential->push_back(std::atof(cursor.c_str()));
                     i++;
                 }
-            }else{
+            }else if(it->find("Parallel") != std::string::npos){
                 
                 while(std::getline(plotDataFile, cursor)){
                     parallel->push_back(std::atof(cursor.c_str()));
                     i++;
                 }
+            }else if(it->find("Cuda")  != std::string::npos){
+                while(std::getline(plotDataFile, cursor)){
+                    cuda->push_back(std::atof(cursor.c_str()));
+                    i++;
+                }
             }
-            
         }
         plotDataFile.close();
     }
