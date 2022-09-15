@@ -52,7 +52,7 @@ void procTest(int k, int points, int epochs,bool soa,int maxProcNumber,int datap
             timesVecParallel.push_back(duration_cast<milliseconds>(stop-start).count());
         }
         writeVectorToFile(timesVecParallel,fmt::format("{}Parallel_{}.txt",resultPath, nProc));
-        plotPercentage(&timesP);
+        
     }
 }
 
