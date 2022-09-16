@@ -52,7 +52,7 @@ void procTest(int k, int points, int epochs,bool soa,int maxProcNumber,int datap
             timesVecParallel.push_back(duration_cast<milliseconds>(stop-start).count());
         }
         writeVectorToFile(timesVecParallel,fmt::format("{}Parallel_{}.txt",resultPath, nProc));
-        
+
     }
 }
 
@@ -136,7 +136,7 @@ int main(int ac, char* av[]){
     int points = 500000;
     int datapoints = 10;
     bool soa = false;
-    bool cuda = true;
+    bool cuda = false;
     bool plot = true;
     bool onlyplot = false;
     try {
@@ -204,6 +204,9 @@ int main(int ac, char* av[]){
     makeResultDir(resultPath);
 
     pVec dataset;
+
+    //dataset = getDataset1(-200,200,-200,200,clusters,points);
+    //plotResults(dataset, clusters, epochs);
     if(!onlyplot){
         if(cuda){
             cudaTest(clusters, points, epochs,datapoints);

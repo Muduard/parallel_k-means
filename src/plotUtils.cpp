@@ -124,9 +124,9 @@ void plotPercentage(std::vector<double>* p){
     canvas.save("w.png");
 }
 
-/*void plotResults(pVec dataset, int k, int epochs){
-    Plot plot;
-    plot.legend().show(false);
+void plotResults(pVec dataset, int k, int epochs){
+    Plot2D plot;
+    plot.legend().atOutsideBottom().show(true);
     
     Vec x,y,cx,cy;
     getVecsFromPVec(&dataset,&x,&y);
@@ -135,39 +135,27 @@ void plotPercentage(std::vector<double>* p){
     pVec centroids = randomCentroids(k,bounds);
     getVecsFromPVec(&centroids,&cx,&cy);
     
-    
     auto start = high_resolution_clock::now();
     kmeans(&dataset,k,&centroids,epochs,bounds);
     auto stop = high_resolution_clock::now();
     std::cout << "KMEANS: " << duration_cast<milliseconds>(stop-start).count() << " ms"<< std::endl;
-
+    printPVec(&centroids);
+    getVecsFromPVec(&centroids,&cx,&cy);
     cleanCache();
-
+    centroids = randomCentroids(k,bounds);
     start = high_resolution_clock::now();
     parallelKmeans(&dataset,k,&centroids,epochs,bounds);
     stop = high_resolution_clock::now();
     std::cout << "Parallel KMEANS: " << duration_cast<milliseconds>(stop-start).count() << " ms"<< std::endl;
-
-    plot.drawDots(x,y);
-    plot.drawDots(cx,cy).lineWidth(5);
-    plot.show(); 
-
-    Plot plot2;
-    plot2.legend().show(false);
-    pVec clusters[k];
-    for(auto p = dataset.begin();p!=dataset.end();p++){
-        clusters[p->getCluster()].push_back(*p);
-        
-    }
-    Vec clusterDraw[k*2];
-    for(int i=0;i<k*2;i+=2){
-        
-        getVecsFromPVec(&clusters[i/2],&clusterDraw[i],&clusterDraw[i+1]);
-        plot2.drawDots(clusterDraw[i],clusterDraw[i+1]);
-    }
-    Vec cx2,cy2;
+    Vec cx2, cy2;
     getVecsFromPVec(&centroids,&cx2,&cy2);
-    //printPVec(&centroids);
-    plot2.drawDots(cx2,cy2).lineWidth(5);
-    plot2.show();
-}*/
+    plot.drawDots(x,y);
+    plot.drawDots(cx,cy).lineWidth(5).lineColor("red").label("Sequential");
+    plot.drawDots(cx2,cy2).lineWidth(5).lineColor("blue").label("Parallel");
+    Figure fig = {{ plot }};
+    Canvas canvas = {{ fig }};
+    canvas.size(600, 600);
+    // Show the canvas in a pop-up window
+    canvas.show();
+    canvas.save("dots.png");
+}
